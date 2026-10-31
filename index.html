@@ -34,7 +34,8 @@
   .at { color: var(--muted); font-size: 12px; }
   .ready .left { color: var(--ready); }
   .soon .left { color: var(--soon); }
-  .empty { color: var(--muted); text-align: center; padding: 32px 0; }
+  h2 { font-size: 15px; margin: 20px 0 8px; color: var(--muted); }
+  .empty { color: var(--muted); text-align: center; padding: 16px 0; }
 </style>
 </head>
 <body>
@@ -46,9 +47,19 @@
     <button data-f="一般" aria-pressed="false">一般棲息地</button>
     <button data-f="PK" aria-pressed="false">PK 棲息地</button>
   </div>
-  <ul id="list"></ul>
+  <h2 id="dead-title">等待重生</h2>
+  <ul id="dead"></ul>
+  <h2 id="alive-title">存活中</h2>
+  <ul id="alive"></ul>
 </main>
 <script>
+const MVPS = ["RSX-0806", "烏龜將軍", "元靈武士", "巴風特", "巴基力蘭特克力斯", "月夜貓", "貝思波", "卡崙",
+  "古埃及王", "白素貞", "皮里恩", "冰暴騎士", "死靈", "死靈騎士", "法老王", "虎王", "俄塞里斯", "蟻后",
+  "迪塔勒泰晤勒斯", "海盜之王", "獸人英雄", "獸人酋長", "黃金蟲", "黑暗之王", "嗒妮小姐", "塔奧群卡", "蜂后",
+  "墨蛇君", "德古拉男爵", "骷髏迪塔勒泰晤勒斯", "闇●神射手 迪文", "闇●神工匠-哈沃德"];
+const KINDS = ["一般", "PK"];
+// 繁體寫法不確定的字視為同一個，避免名單跟封包對不上
+const fold = s => s.replace(/[崙侖倫]/g, "仑");
 let data = {}, filter = "all", lastLoad = 0;
 
 const pad = n => String(n).padStart(2, "0");
@@ -58,27 +69,43 @@ function left(ms) {
   return `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
 }
 
+function row(m, now) {
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="kind"></span><span class="name"></span>
+    <span class="time"><div class="left"></div><div class="at"></div></span>`;
+  li.querySelector(".kind").textContent = m.kind;
+  li.querySelector(".kind").classList.add(m.kind);
+  li.querySelector(".name").textContent = m.name;
+  if (m.respawn > now) {
+    const diff = m.respawn - now;
+    li.className = diff < 10 * 60e3 ? "soon" : "";
+    li.querySelector(".left").textContent = left(diff);
+    li.querySelector(".at").textContent = `擊殺 ${clock(m.killed)} → 重生 ${clock(m.respawn)}`;
+  } else {
+    li.className = "ready";
+    li.querySelector(".left").textContent = "存活";
+    li.querySelector(".at").textContent = m.respawn ? `重生於 ${clock(m.respawn)}` : "";
+  }
+  return li;
+}
+
+function fill(id, title, rows, now) {
+  document.getElementById(id + "-title").textContent = `${title} (${rows.length})`;
+  const ul = document.getElementById(id);
+  ul.replaceChildren(...rows.map(m => row(m, now)));
+  if (!rows.length) ul.innerHTML = `<li class="empty">無</li>`;
+}
+
 function render() {
   const now = Date.now();
-  // 重生超過 6 小時的視為過期資料，不顯示
-  const rows = Object.values(data)
-    .filter(m => (filter === "all" || m.kind === filter) && now - m.respawn < 6 * 3600e3)
-    .sort((a, b) => a.respawn - b.respawn);
-  const list = document.getElementById("list");
-  list.replaceChildren(...rows.map(m => {
-    const li = document.createElement("li");
-    const diff = m.respawn - now;
-    li.className = diff <= 0 ? "ready" : diff < 10 * 60e3 ? "soon" : "";
-    li.innerHTML = `<span class="kind"></span><span class="name"></span>
-      <span class="time"><div class="left"></div><div class="at"></div></span>`;
-    li.querySelector(".kind").textContent = m.kind;
-    li.querySelector(".kind").classList.add(m.kind);
-    li.querySelector(".name").textContent = m.name;
-    li.querySelector(".left").textContent = diff <= 0 ? "已重生" : left(diff);
-    li.querySelector(".at").textContent = `擊殺 ${clock(m.killed)} → 重生 ${clock(m.respawn)}`;
-    return li;
-  }));
-  if (!rows.length) list.innerHTML = `<li class="empty">目前沒有資料</li>`;
+  // 名單上每隻王一般/PK 各一筆；有回報死亡就用回報資料，名單外的王出現時也加進來
+  const all = new Map();
+  for (const kind of KINDS) for (const name of MVPS) all.set(kind + "|" + fold(name), { name, kind, killed: 0, respawn: 0 });
+  for (const m of Object.values(data)) all.set(m.kind + "|" + fold(m.name), m);
+  const rows = [...all.values()].filter(m => filter === "all" || m.kind === filter);
+  fill("dead", "等待重生", rows.filter(m => m.respawn > now).sort((a, b) => a.respawn - b.respawn), now);
+  fill("alive", "存活中", rows.filter(m => m.respawn <= now)
+    .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || MVPS.indexOf(a.name) - MVPS.indexOf(b.name)), now);
 }
 
 async function load() {
