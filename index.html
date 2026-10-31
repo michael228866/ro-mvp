@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MVP 重生時間</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+    --normal: #2563eb; --pk: #dc2626; --ready: #16a34a; --soon: #d97706;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1b1f29; --text: #e6e8ee; --muted: #9aa1ad; --line: #2a303c;
+      --normal: #60a5fa; --pk: #f87171; --ready: #4ade80; --soon: #fbbf24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, "Microsoft JhengHei", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { flex: 1; padding: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; font: inherit; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { border-color: var(--text); font-weight: 600; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  li { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+  .kind { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; flex: none; }
+  .kind.一般 { background: var(--normal); }
+  .kind.PK { background: var(--pk); }
+  .name { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .time { text-align: right; flex: none; }
+  .left { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .at { color: var(--muted); font-size: 12px; }
+  .ready .left { color: var(--ready); }
+  .soon .left { color: var(--soon); }
+  .empty { color: var(--muted); text-align: center; padding: 32px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MVP 重生時間</h1>
+  <div class="sub" id="status">讀取中…</div>
+  <div class="tabs" role="group" aria-label="篩選">
+    <button data-f="all" aria-pressed="true">全部</button>
+    <button data-f="一般" aria-pressed="false">一般棲息地</button>
+    <button data-f="PK" aria-pressed="false">PK 棲息地</button>
+  </div>
+  <ul id="list"></ul>
+</main>
+<script>
+let data = {}, filter = "all", lastLoad = 0;
+
+const pad = n => String(n).padStart(2, "0");
+const clock = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function left(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+}
+
+function render() {
+  const now = Date.now();
+  // 重生超過 6 小時的視為過期資料，不顯示
+  const rows = Object.values(data)
+    .filter(m => (filter === "all" || m.kind === filter) && now - m.respawn < 6 * 3600e3)
+    .sort((a, b) => a.respawn - b.respawn);
+  const list = document.getElementById("list");
+  list.replaceChildren(...rows.map(m => {
+    const li = document.createElement("li");
+    const diff = m.respawn - now;
+    li.className = diff <= 0 ? "ready" : diff < 10 * 60e3 ? "soon" : "";
+    li.innerHTML = `<span class="kind"></span><span class="name"></span>
+      <span class="time"><div class="left"></div><div class="at"></div></span>`;
+    li.querySelector(".kind").textContent = m.kind;
+    li.querySelector(".kind").classList.add(m.kind);
+    li.querySelector(".name").textContent = m.name;
+    li.querySelector(".left").textContent = diff <= 0 ? "已重生" : left(diff);
+    li.querySelector(".at").textContent = `擊殺 ${clock(m.killed)} → 重生 ${clock(m.respawn)}`;
+    return li;
+  }));
+  if (!rows.length) list.innerHTML = `<li class="empty">目前沒有資料</li>`;
+}
+
+async function load() {
+  try {
+    const r = await fetch(`mvp.json?t=${Date.now()}`, { cache: "no-store" });
+    data = r.ok ? await r.json() : {};
+    lastLoad = Date.now();
+    document.getElementById("status").textContent = `每分鐘自動更新 · 最後更新 ${clock(lastLoad)}`;
+  } catch {
+    document.getElementById("status").textContent = "讀取失敗，稍後自動重試";
+  }
+  render();
+}
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+
+load();
+setInterval(load, 60e3);
+setInterval(render, 1000);
+</script>
+</body>
+</html>
