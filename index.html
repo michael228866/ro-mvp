@@ -3,136 +3,291 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>MVP 重生時間</title>
 <style>
   :root {
-    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
-    --normal: #2563eb; --pk: #dc2626; --ready: #16a34a; --soon: #d97706;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #12151c; --card: #1b1f29; --text: #e6e8ee; --muted: #9aa1ad; --line: #2a303c;
-      --normal: #60a5fa; --pk: #f87171; --ready: #4ade80; --soon: #fbbf24;
-    }
+    --bg: #111318; --panel: #1a1d24; --panel-2: #20242d; --line: #2c313c;
+    --text: #eef0f4; --muted: #9aa2b1; --dim: #6b7280;
+    --normal: #3b82f6; --pk: #ef4444;
+    --wait: #e5e7eb; --soon: #fbbf24; --ready: #34d399; --unknown: #6b7280;
+    --focus: #60a5fa;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, "Microsoft JhengHei", sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 20px 16px 40px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-  .tabs button { flex: 1; padding: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; font: inherit; cursor: pointer; }
-  .tabs button[aria-pressed="true"] { border-color: var(--text); font-weight: 600; }
-  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  li { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
-  .kind { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; flex: none; }
-  .kind.一般 { background: var(--normal); }
-  .kind.PK { background: var(--pk); }
-  .name { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .time { text-align: right; flex: none; }
-  .left { font-variant-numeric: tabular-nums; font-weight: 700; }
-  .at { color: var(--muted); font-size: 12px; }
-  .ready .left { color: var(--ready); }
-  .soon .left { color: var(--soon); }
-  h2 { font-size: 15px; margin: 20px 0 8px; color: var(--muted); }
-  .empty { color: var(--muted); text-align: center; padding: 16px 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif; overflow-x: hidden; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+
+  /* 搜尋列固定在最上方 */
+  header { position: sticky; top: 0; z-index: 10; background: rgba(17, 19, 24, .96); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .head { padding: 12px 16px 10px; }
+  .title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .02em; }
+  #sync { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .search { position: relative; }
+  #q { width: 100%; height: 48px; padding: 0 92px 0 44px; font: inherit; font-size: 18px; color: var(--text);
+       background: var(--panel); border: 1px solid var(--line); border-radius: 10px; outline: none; }
+  #q:focus { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(96, 165, 250, .25); }
+  #q::placeholder { color: var(--dim); }
+  #q::-webkit-search-cancel-button { display: none; }
+  .search svg { position: absolute; left: 14px; top: 14px; width: 20px; height: 20px; color: var(--dim); pointer-events: none; }
+  .key { position: absolute; right: 12px; top: 13px; font-size: 12px; color: var(--dim); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; pointer-events: none; }
+  #clear { position: absolute; right: 6px; top: 6px; height: 36px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--text);
+           background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  #clear:focus-visible, .seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+  .seg button { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 0; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  #count { color: var(--muted); font-size: 13px; }
+
+  /* 列表：桌面是緊湊表格，手機是卡片 */
+  main { padding-top: 10px; padding-bottom: 40px; }
+  .thead, .row { display: grid; grid-template-columns: minmax(0, 1.6fr) 72px 150px 150px 96px 120px; align-items: center; column-gap: 16px; }
+  .thead { padding: 6px 14px; color: var(--dim); font-size: 12px; }
+  .row { padding: 8px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; }
+  .row.pair { margin-bottom: 2px; border-bottom-left-radius: 2px; border-bottom-right-radius: 2px; }
+  .row.pair + .row { border-top-left-radius: 2px; border-top-right-radius: 2px; }
+  .name { font-weight: 700; font-size: 16px; min-width: 0; overflow-wrap: anywhere; }
+  .name .en { display: block; font-weight: 400; font-size: 12px; color: var(--dim); }
+  .kind { justify-self: start; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; color: #fff; }
+  .kind.n { background: var(--normal); }
+  .kind.p { background: var(--pk); }
+  .big { font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 700; letter-spacing: .01em; }
+  .big small { display: none; }
+  .respawn .date { font-size: 12px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .killed { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .lbl { display: none; }
+  .status { justify-self: start; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 6px; border: 1px solid currentColor; white-space: nowrap; }
+  .row[data-s="wait"] .left { color: var(--wait); }
+  .row[data-s="wait"] .status { color: var(--muted); }
+  .row[data-s="soon"] .left, .row[data-s="soon"] .status { color: var(--soon); }
+  .row[data-s="ready"] .left, .row[data-s="ready"] .status { color: var(--ready); }
+  .row[data-s="unknown"] .big { color: var(--unknown); font-size: 16px; font-weight: 600; }
+  .row[data-s="unknown"] .status { color: var(--unknown); }
+  mark { background: rgba(251, 191, 36, .25); color: inherit; border-radius: 2px; }
+  #empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 16px; }
+
+  @media (max-width: 760px) {
+    .thead { display: none; }
+    .row { grid-template-columns: 1fr 1fr; grid-template-areas: "name name" "kind status" "respawn left" "killed killed";
+           row-gap: 6px; padding: 12px 14px; border-radius: 10px; margin-bottom: 10px; }
+    .row.pair { margin-bottom: 4px; }
+    .name { grid-area: name; font-size: 17px; }
+    .kind { grid-area: kind; }
+    .status { grid-area: status; justify-self: end; }
+    .respawn { grid-area: respawn; }
+    .left { grid-area: left; }
+    .killed { grid-area: killed; font-size: 13px; }
+    .lbl { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+    .big { font-size: 26px; }
+    .row[data-s="unknown"] .respawn, .row[data-s="unknown"] .left { grid-column: 1 / -1; }
+    .row[data-s="unknown"] .left { display: none; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>MVP 重生時間</h1>
-  <div class="sub" id="status">讀取中…</div>
-  <div class="tabs" role="group" aria-label="篩選">
-    <button data-f="all" aria-pressed="true">全部</button>
-    <button data-f="一般" aria-pressed="false">一般棲息地</button>
-    <button data-f="PK" aria-pressed="false">PK 棲息地</button>
+<header>
+  <div class="head wrap">
+    <div class="title"><h1>MVP 重生時間</h1><span id="sync">讀取中…</span></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="搜尋 MVP，例如：黃金蟲、Baphomet" autocomplete="off" spellcheck="false" aria-label="搜尋 MVP">
+      <span class="key" id="key">/</span>
+      <button id="clear" type="button" hidden>清除</button>
+    </div>
+    <div class="bar">
+      <div class="seg" role="group" aria-label="棲息地">
+        <button data-f="all" aria-pressed="true">全部</button>
+        <button data-f="一般" aria-pressed="false">一般</button>
+        <button data-f="PK" aria-pressed="false">PK</button>
+      </div>
+      <span id="count"></span>
+    </div>
   </div>
-  <h2 id="dead-title">等待重生</h2>
-  <ul id="dead"></ul>
-  <h2 id="alive-title">存活中</h2>
-  <ul id="alive"></ul>
+</header>
+<main class="wrap">
+  <div class="thead" aria-hidden="true"><span>MVP</span><span>棲息地</span><span>預計重生</span><span>剩餘倒數</span><span>擊殺時間</span><span>狀態</span></div>
+  <div id="list"></div>
+  <div id="empty" hidden></div>
 </main>
 <script>
-// 名單取自客戶端每日任務「[王名]討伐殲滅戰」(System\OngoingQuestInfoList_True.lub)
-const MVPS = ["RSX-0806", "烏龜將軍", "元靈武士", "巴風特", "巴基力蘭特克力斯", "巴基力英格麗", "巴基力雷吉麗芙",
-  "月夜貓", "貝思波", "卡崙", "古埃及王", "白素貞", "皮里恩", "冰暴騎士", "死靈", "死靈騎士", "法老王", "虎王",
-  "俄塞里斯", "蟻后", "迪塔勒泰晤勒斯", "骷髏迪塔勒泰晤勒斯", "海盜之王", "獸人英雄", "獸人酋長", "黃金蟲",
-  "黑暗之王", "嗒妮小姐", "塔奧群卡", "蜂后", "墨蛇君", "德古拉男爵",
-  "闇●神射手 迪文", "闇●神工匠 哈沃德", "闇●十字刺客 艾勒梅斯", "闇●神官 瑪嘉雷特",
-  "闇●超魔導師 凱特莉娜", "闇●騎士領主 賽依連"];
+// 名單取自客戶端每日任務「[王名]討伐殲滅戰」；en 為明確定義的英文別名，不確定的留空
+const MVPS = [
+  ["RSX-0806", "RSX-0806"], ["烏龜將軍", "Turtle General"], ["元靈武士", "Incantation Samurai"],
+  ["巴風特", "Baphomet"], ["巴基力蘭特克力斯", "Valkyrie Randgris"], ["巴基力英格麗", "Valkyrie Ingrid"],
+  ["巴基力雷吉麗芙", "Valkyrie Reginleif"], ["月夜貓", "Moonlight Flower"], ["貝思波", "Vesper"], ["卡崙", ""],
+  ["古埃及王", "Amon Ra"], ["白素貞", "White Lady"], ["皮里恩", "Phreeoni"], ["冰暴騎士", "Stormy Knight"],
+  ["死靈", "Doppelganger"], ["死靈騎士", "Lord of the Dead"], ["法老王", "Pharaoh"], ["虎王", "Eddga"],
+  ["俄塞里斯", "Osiris"], ["蟻后", "Maya"], ["迪塔勒泰晤勒斯", "Detardeurus"], ["骷髏迪塔勒泰晤勒斯", ""],
+  ["海盜之王", "Drake"], ["獸人英雄", "Orc Hero"], ["獸人酋長", "Orc Lord"], ["黃金蟲", "Golden Thief Bug"],
+  ["黑暗之王", "Dark Lord"], ["嗒妮小姐", "Lady Tanee"], ["塔奧群卡", "Tao Gunka"], ["蜂后", "Mistress"],
+  ["墨蛇君", "Evil Snake Lord"], ["德古拉男爵", "Dracula"],
+  ["闇●神射手 迪文", "Cecil Damon"], ["闇●神工匠 哈沃德", "Howard Alt-Eisen"],
+  ["闇●十字刺客 艾勒梅斯", "Eremes Guile"], ["闇●神官 瑪嘉雷特", "Margaretha Sorin"],
+  ["闇●超魔導師 凱特莉娜", "Kathryne Keyron"], ["闇●騎士領主 賽依連", "Seyren Windsor"],
+];
+// 明確定義的簡稱
+const ALIASES = { "黃金蟲": ["GTB"], "月夜貓": ["MVP貓"], "巴風特": ["Bapho"] };
 const KINDS = ["一般", "PK"];
-// 公告裡的寫法可能跟任務名稱差一點 (例如「神工匠-哈沃德」)，比對時忽略空白和連字號
-const fold = s => s.replace(/[\s\-]/g, "");
-let data = {}, filter = "all", lastLoad = 0;
+// 公告裡的寫法可能跟任務名稱差一點 (例如「神工匠-哈沃德」)，比對時忽略空白、連字號和●
+const fold = s => s.toLowerCase().replace(/[\s\-‐－●・·]/g, "");
 
+const $ = id => document.getElementById(id);
 const pad = n => String(n).padStart(2, "0");
-const clock = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-function left(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 3600)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
-}
+const hms = ms => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+const dur = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`; };
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const md = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
 
-function row(m, now) {
-  const li = document.createElement("li");
-  li.innerHTML = `<span class="kind"></span><span class="name"></span>
-    <span class="time"><div class="left"></div><div class="at"></div></span>`;
-  li.querySelector(".kind").textContent = m.kind;
-  li.querySelector(".kind").classList.add(m.kind);
-  li.querySelector(".name").textContent = m.name;
-  if (m.respawn > now) {
-    const diff = m.respawn - now;
-    li.className = diff < 10 * 60e3 ? "soon" : "";
-    li.querySelector(".left").textContent = left(diff);
-    li.querySelector(".at").textContent = `擊殺 ${clock(m.killed)} → 重生 ${clock(m.respawn)}`;
-  } else {
-    li.className = "ready";
-    li.querySelector(".left").textContent = "存活";
-    li.querySelector(".at").textContent = m.respawn ? `重生於 ${clock(m.respawn)}` : "";
+// 每隻王的一般 / PK 各一列，只建立一次；之後只更新文字與顯示順序
+const mvps = MVPS.map(([zh, en], i) => ({ zh, en, i, keys: [zh, en, ...(ALIASES[zh] || [])].filter(Boolean).map(fold) }));
+const rows = new Map();   // "kind|fold(name)" -> row
+let data = {}, filter = "all", composing = false;
+
+function makeRow(mvp, kind) {
+  const el = document.createElement("div");
+  el.className = "row";
+  el.innerHTML = `<div class="name"><span class="zh"></span><span class="en"></span></div>
+    <span class="kind ${kind === "PK" ? "p" : "n"}">${kind}</span>
+    <div class="respawn big"><span class="lbl">預計重生</span><span class="v"></span><span class="date"></span></div>
+    <div class="left big"><span class="lbl">剩餘倒數</span><span class="v"></span></div>
+    <div class="killed"><span class="lbl">擊殺時間</span><span class="v"></span></div>
+    <span class="status"></span>`;
+  el.querySelector(".en").textContent = mvp.en === mvp.zh ? "" : mvp.en;
+  const row = { mvp, kind, el, rec: null, state: "",
+    zh: el.querySelector(".zh"), respawn: el.querySelector(".respawn .v"), date: el.querySelector(".respawn .date"),
+    left: el.querySelector(".left .v"), killed: el.querySelector(".killed .v"), status: el.querySelector(".status") };
+  rows.set(kind + "|" + fold(mvp.zh), row);
+  return row;
+}
+for (const mvp of mvps) for (const kind of KINDS) makeRow(mvp, kind);
+
+// 把 mvp.json 的紀錄掛到對應列；名單外的王另外補一列，一般 / PK 各自獨立不合併
+function applyData() {
+  for (const row of rows.values()) row.rec = null;
+  for (const m of Object.values(data)) {
+    if (!m || !m.name || !KINDS.includes(m.kind)) continue;
+    const key = m.kind + "|" + fold(m.name);
+    if (!rows.has(key)) {
+      const mvp = { zh: m.name, en: "", i: mvps.length, keys: [fold(m.name)] };
+      mvps.push(mvp);
+      for (const kind of KINDS) makeRow(mvp, kind);
+    }
+    rows.get(key).rec = m;
   }
-  return li;
+  for (const row of rows.values()) { row.killedAt = -1; row.respawnAt = -1; }
+  layout();
+  tick();
 }
 
-function fill(id, title, rows, now) {
-  document.getElementById(id + "-title").textContent = `${title} (${rows.length})`;
-  const ul = document.getElementById(id);
-  ul.replaceChildren(...rows.map(m => row(m, now)));
-  if (!rows.length) ul.innerHTML = `<li class="empty">無</li>`;
+// 只依搜尋字與固定名單排序，不受重生時間影響：精確 → 開頭相符 → 部分相符
+function score(mvp, q) {
+  if (!q) return 0;
+  let best = 9;
+  for (const k of mvp.keys) best = Math.min(best, k === q ? 0 : k.startsWith(q) ? 1 : k.includes(q) ? 2 : 9);
+  return best;
 }
 
-function render() {
+function highlight(span, text, q) {
+  if (!q) { span.textContent = text; return; }
+  // 對照忽略字元後的位置，標出相符的那段
+  const idx = [], chars = [...text];
+  chars.forEach((c, i) => { if (fold(c)) idx.push(i); });
+  const at = chars.filter((c, i) => idx.includes(i)).map(fold).join("").indexOf(q);
+  if (at < 0) { span.textContent = text; return; }
+  const from = idx[at], to = idx[at + q.length - 1] + 1;
+  span.replaceChildren(chars.slice(0, from).join(""), Object.assign(document.createElement("mark"), { textContent: chars.slice(from, to).join("") }), chars.slice(to).join(""));
+}
+
+function layout() {
+  const raw = $("q").value, q = fold(raw);
+  $("clear").hidden = !raw;
+  $("key").hidden = !!raw;
+  const hits = mvps.map(m => ({ m, s: score(m, q) })).filter(x => x.s < 9).sort((a, b) => a.s - b.s || a.m.i - b.m.i);
+  const out = [];
+  for (const { m } of hits) {
+    const pair = KINDS.filter(k => filter === "all" || k === filter).map(k => rows.get(k + "|" + fold(m.zh)));
+    pair.forEach((row, j) => { row.el.classList.toggle("pair", j < pair.length - 1); highlight(row.zh, m.zh, q); out.push(row.el); });
+  }
+  $("list").replaceChildren(...out);
+  $("count").textContent = q ? `找到 ${hits.length} 隻 MVP` : `共 ${mvps.length} 隻 MVP`;
+  $("empty").hidden = hits.length > 0;
+  $("empty").textContent = `找不到「${raw.trim()}」，請確認名稱或改用部分關鍵字`;
+}
+
+// 每秒只更新有變動的文字，不重建 DOM
+function tick() {
   const now = Date.now();
-  // 名單上每隻王一般/PK 各一筆；有回報死亡就用回報資料，名單外的王出現時也加進來
-  const all = new Map();
-  for (const kind of KINDS) for (const name of MVPS) all.set(kind + "|" + fold(name), { name, kind, killed: 0, respawn: 0 });
-  for (const m of Object.values(data)) all.set(m.kind + "|" + fold(m.name), m);
-  const rows = [...all.values()].filter(m => filter === "all" || m.kind === filter);
-  fill("dead", "等待重生", rows.filter(m => m.respawn > now).sort((a, b) => a.respawn - b.respawn), now);
-  const order = m => MVPS.findIndex(n => fold(n) === fold(m.name));
-  fill("alive", "存活中", rows.filter(m => m.respawn <= now)
-    .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || order(a) - order(b)), now);
+  for (const row of rows.values()) {
+    const r = row.rec;
+    let state;
+    if (!r || !r.respawn) state = "unknown";
+    else if (r.respawn <= now) state = "ready";
+    else state = r.respawn - now < 10 * 60e3 ? "soon" : "wait";
+    if (row.state !== state) {
+      row.state = state;
+      row.el.dataset.s = state;
+      row.status.textContent = { unknown: "無擊殺資料", ready: "已到重生時間", soon: "即將重生", wait: "等待重生" }[state];
+    }
+    if (state === "unknown") {
+      if (row.respawn.textContent !== "重生時間未知") { row.respawn.textContent = "重生時間未知"; row.date.textContent = ""; row.left.textContent = "--:--:--"; row.killed.textContent = "--:--:--"; }
+      continue;
+    }
+    if (row.respawnAt !== r.respawn) {
+      row.respawnAt = r.respawn;
+      row.respawn.textContent = hms(r.respawn);
+      row.date.textContent = sameDay(r.respawn, now) ? "" : md(r.respawn);
+    }
+    if (row.killedAt !== r.killed) {
+      row.killedAt = r.killed;
+      row.killed.textContent = r.killed ? (sameDay(r.killed, now) ? "" : md(r.killed) + " ") + hms(r.killed) : "--:--:--";
+    }
+    const left = state === "ready" ? "00:00:00" : dur(r.respawn - now);
+    if (row.left.textContent !== left) row.left.textContent = left;
+  }
 }
 
 async function load() {
   try {
     const r = await fetch(`mvp.json?t=${Date.now()}`, { cache: "no-store" });
     data = r.ok ? await r.json() : {};
-    lastLoad = Date.now();
-    document.getElementById("status").textContent = `每分鐘自動更新 · 最後更新 ${clock(lastLoad)}`;
+    $("sync").textContent = `每分鐘同步 · 最後更新 ${hms(Date.now())}`;
   } catch {
-    document.getElementById("status").textContent = "讀取失敗，稍後自動重試";
+    $("sync").textContent = "同步失敗，稍後自動重試";
   }
-  render();
+  applyData();
 }
 
-document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
-  filter = b.dataset.f;
-  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-pressed", x === b));
-  render();
+// 搜尋：輸入即篩選；中文輸入法組字期間不搜尋，組字完成才套用
+const q = $("q");
+q.addEventListener("compositionstart", () => { composing = true; });
+q.addEventListener("compositionend", () => { composing = false; layout(); });
+q.addEventListener("input", e => { if (!composing && !e.isComposing) layout(); });
+q.addEventListener("keydown", e => { if (e.key === "Escape" && q.value) { e.preventDefault(); clearSearch(); } });
+function clearSearch() { q.value = ""; layout(); q.focus(); }
+$("clear").onclick = clearSearch;
+
+document.addEventListener("keydown", e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if ((e.key === "k" || e.key === "K") && (e.ctrlKey || e.metaKey) || (e.key === "/" && !typing)) {
+    e.preventDefault();
+    q.focus();
+    q.select();
+  }
 });
 
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  layout();
+});
+
+layout();
 load();
 setInterval(load, 60e3);
-setInterval(render, 1000);
+// 對齊整秒更新，倒數不會忽快忽慢
+(function loop() { tick(); setTimeout(loop, 1000 - (Date.now() % 1000) + 5); })();
 </script>
 </body>
 </html>
